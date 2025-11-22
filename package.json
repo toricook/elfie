@@ -6,10 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clear-db": "npx tsx scripts/clear-db.ts",
+    "setup-db": "npx tsx scripts/setup-db.ts",
+    "seed-glee": "npx tsx scripts/seed-glee.ts"
   },
   "dependencies": {
+    "@vercel/postgres": "^0.10.0",
+    "dotenv": "^17.2.3",
     "next": "16.0.3",
+    "postgres": "^3.4.7",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
