@@ -8,7 +8,8 @@ type Participant = {
   email: string;
   verified: boolean;
   display_name: string | null;
-  exclusion_email: string | null;
+  exclusion_participant_id: number | null;
+  assigned_to_participant_id: number | null;
   created_at: string;
 };
 
@@ -26,13 +27,13 @@ export default function AdminPage() {
   const [drawError, setDrawError] = useState<string | null>(null);
   const [gameDrawn, setGameDrawn] = useState(false);
 
-  const verifiedCount = participants.filter(p => p.verified).length;
+  const verifiedCount = participants.filter((p) => p.verified).length;
   const canDraw = verifiedCount >= 3;
 
   useEffect(() => {
     const paramId = parseInt(searchParams.get('game') || '', 10);
     const normalizedId = Number.isNaN(paramId) ? 1 : paramId;
-    setGameId(current => (current === normalizedId ? current : normalizedId));
+    setGameId((current) => (current === normalizedId ? current : normalizedId));
   }, [searchParams]);
 
   useEffect(() => {
@@ -44,9 +45,8 @@ export default function AdminPage() {
     const data = await res.json();
     const participants = data.participants || [];
     setParticipants(participants);
-    
-    // Check if game has been drawn by checking if any participant has an assignment
-    const hasAssignments = participants.some((p: any) => p.assigned_to_email);
+
+    const hasAssignments = participants.some((p: any) => p.assigned_to_participant_id);
     setGameDrawn(hasAssignments);
   };
 
@@ -57,7 +57,7 @@ export default function AdminPage() {
     }
 
     setLoading(true);
-    setDrawError(null); // Clear draw error on any change
+    setDrawError(null);
     try {
       const res = await fetch(`/api/game/${gameId}/invite`, {
         method: 'POST',
@@ -66,7 +66,7 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      
+
       if (res.ok) {
         alert(`Invited! Send this link:\n${data.verification_link}`);
         setEmail('');
@@ -94,19 +94,17 @@ export default function AdminPage() {
       });
 
       const data = await res.json();
-      
+
       if (res.ok) {
-        // Print assignments to console
         console.log('Secret Santa Assignments:');
         if (data.assignments) {
           data.assignments.forEach((a: { giver: string; receiver: string }) => {
-            console.log(`  ${a.giver} → ${a.receiver}`);
+            console.log(`  ${a.giver} -> ${a.receiver}`);
           });
         }
         setGameDrawn(true);
-        loadParticipants(); // Refresh to get updated status
+        loadParticipants();
       } else {
-        // Show error message that persists
         setDrawError(data.error || 'Failed to create assignments');
       }
     } catch (error) {
@@ -116,44 +114,39 @@ export default function AdminPage() {
     }
   };
 
-  const updateExclusion = async (participantId: number, exclusionEmail: string | null) => {
-    // Optimistic update - update UI immediately
-    setParticipants(prev => prev.map(p => 
-      p.id === participantId ? { ...p, exclusion_email: exclusionEmail } : p
-    ));
-    setDrawError(null); // Clear draw error on any change
+  const updateExclusion = async (participantId: number, exclusionParticipantId: number | null) => {
+    setParticipants((prev) =>
+      prev.map((p) => (p.id === participantId ? { ...p, exclusion_participant_id: exclusionParticipantId } : p))
+    );
+    setDrawError(null);
 
     try {
       const res = await fetch(`/api/game/${gameId}/participants/${participantId}/exclusions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exclusion_email: exclusionEmail }),
+        body: JSON.stringify({ exclusion_participant_id: exclusionParticipantId }),
       });
 
       if (res.ok) {
-        // Sync with server to ensure consistency
         loadParticipants();
       } else {
-        // Revert on error
         const data = await res.json();
         loadParticipants();
         alert(`Error: ${data.error}`);
       }
     } catch (error) {
-      // Revert on error
       loadParticipants();
       alert('Failed to update exclusion');
     }
   };
 
-  const verifiedParticipants = participants.filter(p => p.verified);
+  const verifiedParticipants = participants.filter((p) => p.verified);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Secret Santa Admin</h1>
 
-        {/* Invite Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Invite Participant</h2>
           <div className="flex gap-2">
@@ -175,21 +168,15 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Participants List */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">
-            Participants ({verifiedCount} verified)
-          </h2>
-          
+          <h2 className="text-xl font-semibold mb-4">Participants ({verifiedCount} verified)</h2>
+
           {participants.length === 0 ? (
             <p className="text-gray-500">No participants yet</p>
           ) : (
             <div className="space-y-2">
               {participants.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
+                <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     {p.verified && p.display_name ? (
                       <div>
@@ -202,12 +189,10 @@ export default function AdminPage() {
                   </div>
                   <span
                     className={`px-3 py-1 rounded-full text-sm ${
-                      p.verified
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                      p.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}
                   >
-                    {p.verified ? '✓ Verified' : '⏳ Pending'}
+                    {p.verified ? 'Verified' : 'Pending'}
                   </span>
                 </div>
               ))}
@@ -215,35 +200,29 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Exclusions Section */}
         {verifiedParticipants.length > 0 && (
           <div className="bg-white rounded-lg shadow p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">Exclusions</h2>
-            <p className="text-gray-600 text-sm mb-4">
-              Set who each player cannot give gifts to
-            </p>
-            
+            <p className="text-gray-600 text-sm mb-4">Set who each player cannot give gifts to</p>
+
             <div className="space-y-4">
               {verifiedParticipants.map((participant) => {
-                const currentExclusion = participant.exclusion_email;
+                const currentExclusion = participant.exclusion_participant_id;
                 const isEditing = editingExclusionsFor === participant.id;
-                
+
                 return (
                   <div key={participant.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <span className="font-medium">
-                          {participant.display_name || participant.email}
-                        </span>
+                        <span className="font-medium">{participant.display_name || participant.email}</span>
                         {!isEditing && currentExclusion && (
                           <span className="text-gray-500 text-sm ml-2">
-                            (excludes {verifiedParticipants.find(p => p.email === currentExclusion)?.display_name || currentExclusion})
+                            (excludes{' '}
+                            {verifiedParticipants.find((p) => p.id === currentExclusion)?.display_name || 'unknown'})
                           </span>
                         )}
                         {!isEditing && !currentExclusion && (
-                          <span className="text-gray-500 text-sm ml-2">
-                            (no exclusion)
-                          </span>
+                          <span className="text-gray-500 text-sm ml-2">(no exclusion)</span>
                         )}
                       </div>
                       <button
@@ -253,22 +232,22 @@ export default function AdminPage() {
                         {isEditing ? 'Done' : 'Edit'}
                       </button>
                     </div>
-                    
+
                     {isEditing && (
                       <div className="mt-3">
                         <select
                           value={currentExclusion || ''}
                           onChange={(e) => {
-                            const exclusionEmail = e.target.value || null;
-                            updateExclusion(participant.id, exclusionEmail);
+                            const exclusionId = e.target.value ? Number(e.target.value) : null;
+                            updateExclusion(participant.id, exclusionId);
                           }}
                           className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">No exclusion</option>
                           {verifiedParticipants
-                            .filter(p => p.id !== participant.id)
+                            .filter((p) => p.id !== participant.id)
                             .map((other) => (
-                              <option key={other.id} value={other.email}>
+                              <option key={other.id} value={other.id}>
                                 {other.display_name || other.email}
                               </option>
                             ))}
@@ -282,17 +261,11 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Draw Button */}
         {gameDrawn ? (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Draw Names</h2>
-            <p className="text-gray-600">
-              Names have already been drawn for this game.
-            </p>
-            <a
-              href={`/admin/results?game=${gameId}`}
-              className="inline-block mt-4 text-blue-600 hover:underline"
-            >
+            <p className="text-gray-600">Names have already been drawn for this game.</p>
+            <a href={`/admin/results?game=${gameId}`} className="inline-block mt-4 text-blue-600 hover:underline">
               View Results →
             </a>
           </div>
@@ -300,23 +273,20 @@ export default function AdminPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Draw Names</h2>
             <p className="text-gray-600 mb-4">
-              {canDraw 
+              {canDraw
                 ? `Ready to draw names for ${verifiedCount} participants!`
-                : `Need at least 3 verified participants (currently ${verifiedCount})`
-              }
+                : `Need at least 3 verified participants (currently ${verifiedCount})`}
             </p>
             <button
               onClick={drawNames}
               disabled={!canDraw || drawing}
               className="bg-red-600 text-white px-8 py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-400 transition font-semibold"
             >
-              {drawing ? 'Drawing...' : '🎁 Draw Names'}
+              {drawing ? 'Drawing...' : 'Draw Names'}
             </button>
             {drawError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800 text-sm font-medium">
-                  ⚠️ {drawError}
-                </p>
+                <p className="text-red-800 text-sm font-medium">{drawError}</p>
               </div>
             )}
           </div>

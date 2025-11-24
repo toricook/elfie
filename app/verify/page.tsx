@@ -32,16 +32,9 @@ export default async function VerifyPage({
   }
 
   if (participant.verified) {
+    // Already verified: redirect through the API route to set session and land on /me
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Verified</h1>
-          <p>You're signed up for Secret Santa!</p>
-          <p className="mt-2 text-gray-600">
-            You'll receive an email with your assignment after the draw.
-          </p>
-        </div>
-      </div>
+      <meta httpEquiv="refresh" content={`0;url=/api/verify/${token}`} />
     );
   }
 

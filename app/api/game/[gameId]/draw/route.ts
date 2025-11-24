@@ -42,29 +42,12 @@ export async function POST(
       );
     }
     
-    // Convert participants to Player format
-    // Use display_name if available, otherwise fall back to email
-    // Create a map of email -> display_name for exclusion matching
-    const emailToDisplayName = new Map<string, string>();
-    participants.forEach(p => {
-      const displayName = (p.display_name as string) || p.email;
-      emailToDisplayName.set(p.email, displayName);
-    });
-    
-    const players: Player[] = participants.map(p => {
-      const displayName = (p.display_name as string) || p.email;
-      // Convert single exclusion email to array format for assignment library
-      const exclusionEmail = (p.exclusion_email as string) || null;
-      const exclusionNames = exclusionEmail 
-        ? [emailToDisplayName.get(exclusionEmail) || exclusionEmail]
-        : [];
-      
-      return {
-        name: displayName,
-        exclusions: exclusionNames
-      };
-    });
-    
+    // Convert participants to Player format using participant IDs to keep uniqueness
+    const players: Player[] = participants.map((p) => ({
+      name: String(p.id),
+      exclusions: p.exclusion_participant_id ? [String(p.exclusion_participant_id)] : [],
+    }));
+
     // Generate assignments
     const assignments = createSecretSantaAssignments(players);
     
@@ -76,28 +59,28 @@ export async function POST(
     }
     
     // Save assignments to database
-    // Map display names back to emails for database storage
-    const displayNameToEmail = new Map<string, string>();
-    participants.forEach(p => {
-      const displayName = (p.display_name as string) || p.email;
-      displayNameToEmail.set(displayName, p.email);
-    });
-    
     for (const assignment of assignments) {
-      const giverEmail = displayNameToEmail.get(assignment.giver) || assignment.giver;
-      const receiverEmail = displayNameToEmail.get(assignment.receiver) || assignment.receiver;
-      await assignSecretSanta(giverEmail, receiverEmail);
+      const giverId = Number(assignment.giver);
+      const receiverId = Number(assignment.receiver);
+      await assignSecretSanta(giverId, receiverId);
     }
     
     // Update game status
     await updateGameStatus(gameId, 'drawn');
     
     // Map assignments back to display names for response
-    const assignmentsWithNames = assignments.map(a => ({
-      giver: a.giver,
-      receiver: a.receiver
-    }));
-    
+    const idToDisplayName = new Map<number, string>();
+    participants.forEach((p) => {
+      const name = (p.display_name as string) || p.email;
+      idToDisplayName.set(p.id as number, name);
+    });
+
+    const assignmentsWithNames = assignments.map((a) => {
+      const giverName = idToDisplayName.get(Number(a.giver)) || a.giver;
+      const receiverName = idToDisplayName.get(Number(a.receiver)) || a.receiver;
+      return { giver: giverName, receiver: receiverName };
+    });
+
     return NextResponse.json({ 
       success: true,
       assignments_count: assignments.length,

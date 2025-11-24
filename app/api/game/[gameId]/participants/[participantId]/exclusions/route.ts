@@ -31,30 +31,48 @@ export async function PUT(
       );
     }
     
-    const { exclusion_email } = await request.json();
-    
-    // Validate exclusion_email is either null or a string
-    if (exclusion_email !== null && exclusion_email !== undefined && typeof exclusion_email !== 'string') {
-      return NextResponse.json(
-        { error: 'Exclusion email must be a string or null' },
-        { status: 400 }
-      );
-    }
-    
+    const { exclusion_participant_id } = await request.json();
+
     // Verify participant exists and is in this game
     const participants = await getAllParticipants(gameId);
-    const participant = participants.find(p => p.id === participantId);
-    
+    const participant = participants.find((p) => p.id === participantId);
+
     if (!participant) {
       return NextResponse.json(
         { error: 'Participant not found' },
         { status: 404 }
       );
     }
-    
-    // Update exclusion
-    await updateParticipantExclusion(participantId, exclusion_email || null);
-    
+
+    if (
+      exclusion_participant_id !== null &&
+      exclusion_participant_id !== undefined &&
+      typeof exclusion_participant_id !== 'number'
+    ) {
+      return NextResponse.json(
+        { error: 'Exclusion participant id must be a number or null' },
+        { status: 400 }
+      );
+    }
+
+    if (exclusion_participant_id) {
+      const target = participants.find((p) => p.id === exclusion_participant_id);
+      if (!target) {
+        return NextResponse.json(
+          { error: 'Exclusion participant not in this game' },
+          { status: 400 }
+        );
+      }
+      if (target.id === participantId) {
+        return NextResponse.json(
+          { error: 'Cannot exclude self' },
+          { status: 400 }
+        );
+      }
+    }
+
+    await updateParticipantExclusion(participantId, exclusion_participant_id ?? null);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating exclusions:', error);

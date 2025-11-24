@@ -1,6 +1,36 @@
 import { NextResponse } from 'next/server';
-import { verifyParticipant } from '@/lib/db';
-import { redirect } from 'next/navigation';
+import { getParticipantByToken, verifyParticipant } from '@/lib/db';
+import { participantCookieOptions, signSession } from '@/lib/auth';
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  const { token } = await params;
+  if (!token) {
+    return NextResponse.redirect(new URL('/verify', request.url));
+  }
+
+  const participant = await getParticipantByToken(token);
+  if (!participant) {
+    return NextResponse.redirect(new URL('/verify', request.url));
+  }
+
+  if (!participant.verified) {
+    return NextResponse.redirect(new URL(`/verify?token=${token}`, request.url));
+  }
+
+  const session = await signSession({
+    userId: participant.user_id,
+    participantId: participant.id,
+    gameId: participant.game_id,
+    email: participant.email,
+  });
+
+  const response = NextResponse.redirect(new URL('/me', request.url));
+  response.cookies.set('participant_session', session, participantCookieOptions());
+  return response;
+}
 
 export async function POST(
   request: Request,
@@ -34,7 +64,16 @@ export async function POST(
     }
     
     // Redirect to success page
-    return NextResponse.redirect(new URL(`/verify?token=${token}`, request.url));
+    const session = await signSession({
+      userId: participant.user_id,
+      participantId: participant.id,
+      gameId: participant.game_id,
+      email: participant.email,
+    });
+
+    const response = NextResponse.redirect(new URL(`/verify?token=${token}`, request.url));
+    response.cookies.set('participant_session', session, participantCookieOptions());
+    return response;
   } catch (error) {
     console.error('Error verifying participant:', error);
     return NextResponse.json(

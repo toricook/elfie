@@ -9,7 +9,7 @@ export default async function ResultsPage({
   const gameId = parseInt(params.game || '', 10) || 1;
   const participants = await getAllParticipants(gameId);
 
-  const assignments = participants.filter((p) => p.assigned_to_email);
+  const assignments = participants.filter((p) => p.assigned_to_participant_id);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -29,11 +29,12 @@ export default async function ResultsPage({
 
           <div className="space-y-3">
             {assignments.map((p) => {
-              // Find the receiver's display name
-              const receiver = participants.find(part => part.email === p.assigned_to_email);
-              const receiverName = receiver?.display_name || p.assigned_to_email;
+              const receiver = participants.find(
+                (part) => part.id === p.assigned_to_participant_id
+              );
+              const receiverName = receiver?.display_name || receiver?.email || 'Unknown';
               const giverName = p.display_name || p.email;
-              
+
               return (
                 <div
                   key={p.id}
