@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type Participant = {
@@ -13,7 +13,7 @@ type Participant = {
   created_at: string;
 };
 
-export default function AdminPage() {
+function AdminPageContent() {
   const searchParams = useSearchParams();
   const [gameId, setGameId] = useState<number>(() => {
     const paramId = parseInt(searchParams.get('game') || '', 10);
@@ -293,5 +293,13 @@ export default function AdminPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading admin...</div>}>
+      <AdminPageContent />
+    </Suspense>
   );
 }
