@@ -222,7 +222,7 @@ export async function getWishlist(participantId: number) {
   return result[0]?.items ?? [];
 }
 
-export async function upsertWishlist(participantId: number, items: unknown) {
+export async function upsertWishlist(participantId: number, items: string[]) {
   await sql`
     INSERT INTO wishlists (participant_id, items)
     VALUES (${participantId}, ${sql.json(items)})
