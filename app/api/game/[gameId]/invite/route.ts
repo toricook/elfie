@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addParticipant, getGame } from '@/lib/db';
+import { buildMagicLink, sendMagicLinkEmail } from '@/lib/email';
+import { getAdminSession } from '@/lib/server-session';
 import crypto from 'crypto';
 
 export async function POST(
@@ -7,6 +9,11 @@ export async function POST(
   context: { params: Promise<{ gameId: string }> }
 ) {
   try {
+    const adminSession = await getAdminSession();
+    if (!adminSession?.admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { gameId: gameIdRaw } = await context.params;
     const { email } = await request.json();
 
@@ -46,9 +53,17 @@ export async function POST(
     // Add participant
     const participantId = await addParticipant(gameId, email, token);
     
-    // TODO: Send email with verification link
-    const verificationLink = `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/verify?token=${token}`;
-    console.log('Send this link to', email, ':', verificationLink);
+    // Send email with verification link
+    const verificationLink = buildMagicLink(token);
+    try {
+      await sendMagicLinkEmail(email, token);
+    } catch (error) {
+      console.error('Error sending invitation email:', error);
+      return NextResponse.json(
+        { error: 'Failed to send invitation email', verification_link: verificationLink },
+        { status: 500 }
+      );
+    }
     
     return NextResponse.json({ 
       participant_id: participantId,
