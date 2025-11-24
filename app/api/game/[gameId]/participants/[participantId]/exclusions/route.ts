@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { updateParticipantExclusion, getGame, getAllParticipants } from '@/lib/db';
+import { getAdminSession } from '@/lib/server-session';
 
 export async function PUT(
   request: Request,
   context: { params: Promise<{ gameId: string; participantId: string }> }
 ) {
   try {
+    const adminSession = await getAdminSession();
+    if (!adminSession?.admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { gameId: gameIdRaw, participantId: participantIdRaw } = await context.params;
     const gameId = Number(gameIdRaw);
     const participantId = Number(participantIdRaw);
@@ -82,4 +88,3 @@ export async function PUT(
     );
   }
 }
-

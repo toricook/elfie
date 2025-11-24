@@ -67,6 +67,11 @@ export async function sendEmail({ to, subject, text, html }: EmailOptions) {
   if (info.messageId) {
     console.log(`Email queued for ${to}: ${info.messageId}`);
   }
+
+  // For JSON transport in dev, dump the message payload.
+  if (info.message) {
+    console.log('Email JSON:', info.message.toString());
+  }
 }
 
 export function buildMagicLink(token: string) {

@@ -2,12 +2,18 @@ import { NextResponse } from 'next/server';
 import { getVerifiedParticipants, assignSecretSanta, updateGameStatus, getGame } from '@/lib/db';
 import { sendDrawNotificationEmail } from '@/lib/email';
 import { createSecretSantaAssignments, type Player } from '@/lib/assignment';
+import { getAdminSession } from '@/lib/server-session';
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ gameId: string }> }
 ) {
   try {
+    const adminSession = await getAdminSession();
+    if (!adminSession?.admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { gameId: gameIdRaw } = await context.params;
     const gameId = Number(gameIdRaw);
     
@@ -111,4 +117,3 @@ export async function POST(
     );
   }
 }
-
