@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getVerifiedParticipants, assignSecretSanta, updateGameStatus, getGame } from '@/lib/db';
+import { sendDrawNotificationEmail } from '@/lib/email';
 import { createSecretSantaAssignments, type Player } from '@/lib/assignment';
+import { getAdminSession } from '@/lib/server-session';
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ gameId: string }> }
 ) {
   try {
+    const adminSession = await getAdminSession();
+    if (!adminSession?.admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { gameId: gameIdRaw } = await context.params;
     const gameId = Number(gameIdRaw);
     
@@ -67,6 +74,17 @@ export async function POST(
     
     // Update game status
     await updateGameStatus(gameId, 'drawn');
+
+    // Notify participants that the draw is complete and re-send their magic links
+    const notifications = await Promise.allSettled(
+      participants.map((p) =>
+        sendDrawNotificationEmail(
+          p.email as string,
+          p.token as string,
+          (p.display_name as string) || (p.email as string)
+        )
+      )
+    );
     
     // Map assignments back to display names for response
     const idToDisplayName = new Map<number, string>();
@@ -81,10 +99,15 @@ export async function POST(
       return { giver: giverName, receiver: receiverName };
     });
 
+    const failedNotifications = notifications
+      .map((result, idx) => (result.status === 'rejected' ? participants[idx].email : null))
+      .filter((email): email is string => Boolean(email));
+
     return NextResponse.json({ 
       success: true,
       assignments_count: assignments.length,
-      assignments: assignmentsWithNames
+      assignments: assignmentsWithNames,
+      notification_errors: failedNotifications.length ? failedNotifications : undefined
     });
   } catch (error) {
     console.error('Error drawing names:', error);
@@ -94,4 +117,3 @@ export async function POST(
     );
   }
 }
-

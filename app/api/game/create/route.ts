@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createGame } from '@/lib/db';
+import { getAdminSession } from '@/lib/server-session';
 
 export async function POST(request: Request) {
   try {
+    const adminSession = await getAdminSession();
+    if (!adminSession?.admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { admin_email } = await request.json();
     
     // Basic validation
