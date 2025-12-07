@@ -4,9 +4,10 @@ import { useState } from 'react';
 
 type Props = {
   initialItems: string[];
+  gameId: number;
 };
 
-export default function WishlistEditor({ initialItems }: Props) {
+export default function WishlistEditor({ initialItems, gameId }: Props) {
   const [items, setItems] = useState<string[]>(initialItems);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -28,7 +29,7 @@ export default function WishlistEditor({ initialItems }: Props) {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/me/wishlist', {
+      const res = await fetch(`/api/me/wishlist?gameId=${gameId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items }),

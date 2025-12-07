@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 
 type Participant = {
   id: number;
@@ -14,9 +13,10 @@ type Participant = {
 };
 
 export default function AdminPage() {
-  const searchParams = useSearchParams();
   const [gameId, setGameId] = useState<number>(() => {
-    const paramId = parseInt(searchParams.get('game') || '', 10);
+    if (typeof window === 'undefined') return 1;
+    const params = new URLSearchParams(window.location.search);
+    const paramId = parseInt(params.get('game') || '', 10);
     return Number.isNaN(paramId) ? 1 : paramId;
   });
   const [email, setEmail] = useState('');
@@ -31,10 +31,12 @@ export default function AdminPage() {
   const canDraw = verifiedCount >= 3;
 
   useEffect(() => {
-    const paramId = parseInt(searchParams.get('game') || '', 10);
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const paramId = parseInt(params.get('game') || '', 10);
     const normalizedId = Number.isNaN(paramId) ? 1 : paramId;
     setGameId((current) => (current === normalizedId ? current : normalizedId));
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     loadParticipants();

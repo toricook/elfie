@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { addParticipant, getGame } from '@/lib/db';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { addParticipant, getGame, isGameAdmin } from '@/lib/db';
 import { buildMagicLink, sendMagicLinkEmail } from '@/lib/email';
-import { getAdminSession } from '@/lib/server-session';
 import crypto from 'crypto';
 
 export async function POST(
@@ -9,8 +10,9 @@ export async function POST(
   context: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const adminSession = await getAdminSession();
-    if (!adminSession?.admin) {
+    const session = await getServerSession(authOptions);
+    const userId = Number((session as any)?.user?.id);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,6 +22,12 @@ export async function POST(
     const gameId = Number(gameIdRaw);
     if (!Number.isInteger(gameId)) {
       return NextResponse.json({ error: 'Invalid game id' }, { status: 400 });
+    }
+
+    const isSuperAdmin = ((session as any).user as any)?.role === 'superadmin';
+    const allowed = isSuperAdmin || (await isGameAdmin(userId, gameId));
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
     // Validate email

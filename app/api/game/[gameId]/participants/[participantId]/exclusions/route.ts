@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
-import { updateParticipantExclusion, getGame, getAllParticipants } from '@/lib/db';
-import { getAdminSession } from '@/lib/server-session';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { updateParticipantExclusion, getGame, getAllParticipants, isGameAdmin } from '@/lib/db';
 
 export async function PUT(
   request: Request,
   context: { params: Promise<{ gameId: string; participantId: string }> }
 ) {
   try {
-    const adminSession = await getAdminSession();
-    if (!adminSession?.admin) {
+    const session = await getServerSession(authOptions);
+    const userId = Number((session as any)?.user?.id);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,6 +20,12 @@ export async function PUT(
     
     if (!Number.isInteger(gameId) || !Number.isInteger(participantId)) {
       return NextResponse.json({ error: 'Invalid IDs' }, { status: 400 });
+    }
+
+    const isSuperAdmin = ((session as any).user as any)?.role === 'superadmin';
+    const allowed = isSuperAdmin || (await isGameAdmin(userId, gameId));
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
     // Check game exists

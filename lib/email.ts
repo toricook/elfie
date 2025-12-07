@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 
+type NodemailerTransporter = ReturnType<typeof nodemailer.createTransport>;
+
 type EmailOptions = {
   to: string;
   subject: string;
@@ -17,7 +19,7 @@ function getFromAddress() {
   return process.env.EMAIL_FROM || DEFAULT_FROM;
 }
 
-let transporterPromise: Promise<nodemailer.Transporter> | null = null;
+let transporterPromise: Promise<NodemailerTransporter> | null = null;
 
 function createTransport() {
   if (transporterPromise) return transporterPromise;

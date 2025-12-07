@@ -214,6 +214,22 @@ export async function getParticipantById(participantId: number) {
   return result[0];
 }
 
+// Game admin helpers
+export async function addGameAdmin(gameId: number, userId: number, role: string = 'admin') {
+  await sql`
+    INSERT INTO game_admins (game_id, user_id, role)
+    VALUES (${gameId}, ${userId}, ${role})
+    ON CONFLICT (game_id, user_id) DO NOTHING
+  `;
+}
+
+export async function isGameAdmin(userId: number, gameId: number) {
+  const result = await sql`
+    SELECT 1 FROM game_admins WHERE game_id = ${gameId} AND user_id = ${userId} LIMIT 1
+  `;
+  return Boolean(result[0]);
+}
+
 // Wishlist helpers
 export async function getWishlist(participantId: number) {
   const result = await sql`
@@ -223,9 +239,11 @@ export async function getWishlist(participantId: number) {
 }
 
 export async function upsertWishlist(participantId: number, items: unknown) {
+  // Coerce unknown to JSON-friendly value for pg client.
+  const jsonItems: any = items;
   await sql`
     INSERT INTO wishlists (participant_id, items)
-    VALUES (${participantId}, ${sql.json(items)})
+    VALUES (${participantId}, ${sql.json(jsonItems)})
     ON CONFLICT (participant_id) DO UPDATE
     SET items = EXCLUDED.items,
         updated_at = NOW()

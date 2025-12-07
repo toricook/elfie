@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getAllParticipants } from '@/lib/db';
-import { getAdminSession } from '@/lib/server-session';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { getAllParticipants, isGameAdmin } from '@/lib/db';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const adminSession = await getAdminSession();
-    if (!adminSession?.admin) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    const userId = Number((session as any)?.user?.id);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { gameId: gameIdParam } = await params;
@@ -29,6 +28,11 @@ export async function GET(
         { error: 'Invalid game ID' },
         { status: 400 }
       );
+    }
+    const isSuperAdmin = ((session as any).user as any)?.role === 'superadmin';
+    const allowed = isSuperAdmin || (await isGameAdmin(userId, gameId));
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const participants = await getAllParticipants(gameId);
 

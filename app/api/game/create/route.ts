@@ -1,26 +1,33 @@
 import { NextResponse } from 'next/server';
-import { createGame } from '@/lib/db';
-import { getAdminSession } from '@/lib/server-session';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { addGameAdmin, createGame } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    const adminSession = await getAdminSession();
-    if (!adminSession?.admin) {
+    const session = await getServerSession(authOptions);
+    const userId = Number((session as any)?.user?.id);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { admin_email } = await request.json();
-    
+    const body = await request.json().catch(() => ({}));
+    const emailFromBody = (body as any)?.admin_email as string | undefined;
+    const adminEmail =
+      ((session as any)?.user as any)?.email ||
+      (typeof emailFromBody === 'string' ? emailFromBody : undefined);
+
     // Basic validation
-    if (!admin_email || !admin_email.includes('@')) {
+    if (!adminEmail || !adminEmail.includes('@')) {
       return NextResponse.json(
         { error: 'Valid email required' },
         { status: 400 }
       );
     }
     
-    const gameId = await createGame(admin_email);
-    
+    const gameId = await createGame(adminEmail);
+    await addGameAdmin(gameId, userId, 'admin');
+
     return NextResponse.json({ game_id: gameId });
   } catch (error) {
     console.error('Error creating game:', error);

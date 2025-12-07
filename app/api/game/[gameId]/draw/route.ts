@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getVerifiedParticipants, assignSecretSanta, updateGameStatus, getGame } from '@/lib/db';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { getVerifiedParticipants, assignSecretSanta, updateGameStatus, getGame, isGameAdmin } from '@/lib/db';
 import { sendDrawNotificationEmail } from '@/lib/email';
-import { createSecretSantaAssignments, type Player } from '@/lib/assignment';
-import { getAdminSession } from '@/lib/server-session';
+import { createSecretSantaAssignments, validateAssignments, type Player } from '@/lib/assignment';
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ gameId: string }> }
 ) {
   try {
-    const adminSession = await getAdminSession();
-    if (!adminSession?.admin) {
+    const session = await getServerSession(authOptions);
+    const userId = Number((session as any)?.user?.id);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -19,6 +21,12 @@ export async function POST(
     
     if (!Number.isInteger(gameId)) {
       return NextResponse.json({ error: 'Invalid game ID' }, { status: 400 });
+    }
+
+    const isSuperAdmin = ((session as any).user as any)?.role === 'superadmin';
+    const allowed = isSuperAdmin || (await isGameAdmin(userId, gameId));
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
     // Check game exists
@@ -58,7 +66,7 @@ export async function POST(
     // Generate assignments
     const assignments = createSecretSantaAssignments(players);
     
-    if (!assignments) {
+    if (!assignments || !validateAssignments(players, assignments)) {
       return NextResponse.json(
         { error: 'Unable to create valid assignments. Please check participant exclusions.' },
         { status: 400 }

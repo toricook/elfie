@@ -1,18 +1,28 @@
 export const dynamic = 'force-dynamic'; // always read fresh data for /api/me
 
 import { NextResponse } from 'next/server';
-import { getParticipantById, getWishlist } from '@/lib/db';
-import { getParticipantSession } from '@/lib/server-session';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { getParticipantById, getParticipantByUserAndGame, getWishlist } from '@/lib/db';
 
-export async function GET() {
-  const session = await getParticipantSession();
-  if (!session?.participantId) {
+export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  const userId = Number((session as any)?.user?.id);
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
 
-  const participant = await getParticipantById(session.participantId);
+  const url = new URL(request.url);
+  const gameIdString = url.searchParams.get('gameId');
+  const gameId = Number(gameIdString);
+
+  if (!gameIdString || !Number.isInteger(gameId)) {
+    return NextResponse.json({ error: 'Missing or invalid gameId' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  const participant = await getParticipantByUserAndGame(userId, gameId);
   if (!participant) {
-    return NextResponse.json({ error: 'Participant not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: 'Participant not found for this game' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
 
   const receiver = participant.assigned_to_participant_id

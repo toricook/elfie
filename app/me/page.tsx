@@ -2,22 +2,27 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import { getParticipantById, getWishlist } from '@/lib/db';
-import { getParticipantSession } from '@/lib/server-session';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/auth.config';
+import { getParticipantById, getParticipantByUserAndGame, getWishlist } from '@/lib/db';
 import WishlistEditor from './wishlist-editor';
 
-export default async function MePage() {
-  const session = await getParticipantSession();
-  if (!session?.participantId) {
-    redirect('/verify');
+export default async function MePage({ searchParams }: { searchParams: { gameId?: string } }) {
+  const session = await getServerSession(authOptions);
+  const userId = Number((session as any)?.user?.id);
+  if (!userId) {
+    redirect('/signin');
   }
 
-  const participant = session.participantId
-    ? await getParticipantById(session.participantId)
-    : null;
+  const gameIdRaw = searchParams?.gameId;
+  const gameId = Number(gameIdRaw);
+  if (!gameIdRaw || !Number.isInteger(gameId)) {
+    redirect('/signin');
+  }
 
+  const participant = await getParticipantByUserAndGame(userId, gameId);
   if (!participant) {
-    redirect('/verify');
+    redirect('/signin');
   }
 
   const receiver = participant.assigned_to_participant_id
@@ -40,7 +45,10 @@ export default async function MePage() {
             <h1 className="text-3xl font-bold">Hi {displayName}</h1>
             <p className="text-gray-600">Here&apos;s your Secret Santa info.</p>
           </div>
-          <form action="/api/auth/logout" method="POST">
+          <form
+            action="/api/auth/signout"
+            method="POST"
+          >
             <button className="text-sm text-red-600 hover:underline" type="submit">
               Log out
             </button>
@@ -58,7 +66,7 @@ export default async function MePage() {
           )}
         </div>
 
-        <WishlistEditor initialItems={myWishlist} />
+        <WishlistEditor initialItems={myWishlist} gameId={gameId} />
 
         {receiver && (
           <div className="bg-white rounded-lg shadow p-6">
